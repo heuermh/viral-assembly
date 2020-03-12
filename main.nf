@@ -19,12 +19,22 @@ process filterShortReads {
 
   shell:
   '''
-  cat $fastq \
+  cat !{fastq} \
     | paste - - - - \
     | tr ' ' '_' \
     | awk 'length($2) > !{params.readLength} { print $1; print $2; print $3; print $4; }' \
-    | pigz > ${sample}.filtered.fastq.gz
+    | pigz > !{sample}.filtered.fastq.gz
   '''
+
+  /*
+  """
+  cat $fastq \
+    | paste - - - - \
+    | tr ' ' '_' \
+    | awk 'length($2) > 2000 { print $1; print $2; print $3; print $4; }' \
+    | pigz > ${sample}.filtered.fastq.gz
+  """
+  */
 }
 
 /*
@@ -35,7 +45,7 @@ process minimap2Index {
   input:
     set sample, file(fastq) from filtered
   output:
-    set sample, $fastq, file("${sample}.mmi") into indexed
+    set sample, file(fastq), file("${sample}.mmi") into indexed
 
   """
   minimap2 -w 1 -d ${sample}.mmi $fastq
@@ -49,7 +59,7 @@ process minimap2 {
   input:
     set sample, file(fastq), file(index) from indexed
   output:
-    set sample, $fastq, file("${sample}.paf") into alignments
+    set sample, file(fastq), file("${sample}.paf") into alignments
 
   """
   minimap2 -c -w 1 -X -t ${params.threads} -d $index $fastq > ${sample}.paf
@@ -62,9 +72,9 @@ process minimap2NoIndex {
   container "quay.io/biocontainers/minimap2:2.17--h8b12597_1"
 
   input:
-    set sample, file(fastq), file(index) from filtered
+    set sample, file(fastq) from filtered
   output:
-    set sample, $fastq, file("${sample}.paf") into alignments
+    set sample, file(fastq), file("${sample}.paf") into alignments
 
   """
   minimap2 -c -w 1 -X -t ${params.threads} $fastq $fastq > ${sample}.paf
@@ -78,7 +88,7 @@ process filterShortAlignments {
   input:
     set sample, file(fastq), file(alignment) from alignments
   output:
-    set sample, $fastq, file("${sample}.filtered.paf") into filteredAlignments
+    set sample, file(fastq), file("${sample}.filtered.paf") into filteredAlignments
 
   """
   fpa drop -l ${params.alignmentReadLength} < $alignment > ${sample}.filtered.paf
@@ -95,8 +105,13 @@ process seqwish {
     set sample, file("${sample}.gfa") into graphs
 
   """
+  touch ${sample}.gfa
+  """
+  /*
+  """
   seqwish -t ${params.threads} -k 16 -s $fastq -p $alignment -g ${sample}.gfa
   """
+  */
 }
 
 process graphSimplification {
@@ -109,8 +124,13 @@ process graphSimplification {
     set sample, file("${sample}.odgi-prune.b3.gfa") into simplifiedGraphs
 
   """
+  cat $graph > ${sample}.odgi-prune.b3.gfa
+  """
+  /*
+  """
   odgi build -g $graph -o - \
     | odgi prune -i - -b 3 -o - \
     | odgi view -i - -g >${sample}.odgi-prune.b3.gfa
   """
+  */
 }
