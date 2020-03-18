@@ -130,7 +130,7 @@ process graphSimplification {
 
   """
   odgi build -g $graph -o - \
-    | odgi prune -i - -b 3 -o - \
+    | odgi prune -k 16 -i - -o - \
     | odgi view -i - -g >${sample}.odgi-prune.b3.gfa
   """
 }
