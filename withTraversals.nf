@@ -8,7 +8,7 @@ gfas = Channel.fromPath(gfaFiles).map { path -> tuple(path.baseName, path.toReal
 process withTraversals {
   tag { sample }
   publishDir "$parent", mode: 'move'
-  container "quay.io/biocontainers/dsh-bio:1.3.2--0"
+  container "quay.io/biocontainers/dsh-bio:1.3.3--0"
 
   input:
     set sample, parent, file(gfa) from gfas
