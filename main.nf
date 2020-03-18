@@ -2,7 +2,7 @@
 
 params.dir = "${baseDir}"
 params.threads = 4
-params.readLength = 2000
+params.minReadLength = 2000
 params.alignmentReadLength = 1000
 
 fastqFiles = "${params.dir}/**.fastq"
@@ -10,7 +10,26 @@ fastqs = Channel.fromPath(fastqFiles).map { path -> tuple(path.baseName, path) }
 
 process filterShortReads {
   tag { sample }
-  container "quay.io/glennhickey/pigz:2.3.1" // todo: might not have tr & awk
+  container "quay.io/biocontainers/dsh-bio:1.3.3--0"
+
+  input:
+    set sample, file(fastq) from fastqs
+  output:
+    set sample, file("${sample}.filtered.fastq.gz") into filtered
+
+  """
+  cat ${fastq} \
+    | tr ' ' '_' \
+    | dsh-bio filter-fastq \
+        --length ${params.minReadLength} \
+        -o ${sample}.filtered.fastq.gz
+  """
+}
+
+/*
+process filterShortReads {
+  tag { sample }
+  container "quay.io/glennhickey/pigz:2.3.1" // todo: this docker image has no shell
 
   input:
     set sample, file(fastq) from fastqs
@@ -25,17 +44,8 @@ process filterShortReads {
     | awk 'length($2) > !{params.readLength} { print $1; print $2; print $3; print $4; }' \
     | pigz > !{sample}.filtered.fastq.gz
   '''
-
-  /*
-  """
-  cat $fastq \
-    | paste - - - - \
-    | tr ' ' '_' \
-    | awk 'length($2) > 2000 { print $1; print $2; print $3; print $4; }' \
-    | pigz > ${sample}.filtered.fastq.gz
-  """
-  */
 }
+*/
 
 /*
 process minimap2Index {
@@ -97,7 +107,7 @@ process filterShortAlignments {
 
 process seqwish {
   tag { sample }
-  container ""
+  container "heuermh/seqwish-dev:latest"
 
   input:
     set sample, file(fastq), file(alignment) from filteredAlignments
@@ -105,13 +115,8 @@ process seqwish {
     set sample, file("${sample}.gfa") into graphs
 
   """
-  touch ${sample}.gfa
-  """
-  /*
-  """
   seqwish -t ${params.threads} -k 16 -s $fastq -p $alignment -g ${sample}.gfa
   """
-  */
 }
 
 process graphSimplification {
@@ -124,13 +129,8 @@ process graphSimplification {
     set sample, file("${sample}.odgi-prune.b3.gfa") into simplifiedGraphs
 
   """
-  cat $graph > ${sample}.odgi-prune.b3.gfa
-  """
-  /*
-  """
   odgi build -g $graph -o - \
     | odgi prune -i - -b 3 -o - \
     | odgi view -i - -g >${sample}.odgi-prune.b3.gfa
   """
-  */
 }
