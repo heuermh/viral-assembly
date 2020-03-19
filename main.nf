@@ -121,7 +121,7 @@ process seqwish {
 
 process graphSimplification {
   tag { sample }
-  container "quay.io/biocontainers/odgi:0.2--py37h8b12597_0"
+  container "heuermh/odgi-dev:latest"
 
   input:
     set sample, file(graph) from graphs
@@ -130,7 +130,17 @@ process graphSimplification {
 
   """
   odgi build -g $graph -o - \
+    | odgi prune -i - -b 3 -o - \
+    | odgi view -i - -g >${sample}.odgi-prune.b3.gfa
+  """
+
+/*
+  //container "quay.io/biocontainers/odgi:0.2--py37h8b12597_0"
+
+  """
+  odgi build -g $graph -o - \
     | odgi prune -k 16 -i - -o - \
     | odgi view -i - -g >${sample}.odgi-prune.b3.gfa
   """
+*/
 }
